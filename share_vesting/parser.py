@@ -128,7 +128,7 @@ def parse_statement_text(text: str, source: str = "") -> Parsed:
     for page in pages:
         lines = page.splitlines()
         period = None
-        for ln in lines[:12]:
+        for ln in lines[:30]:
             m = PERIOD_RE.search(ln)
             if m:
                 period = Period(date(int(m[3]), MONTHS[m[1]], int(m[2])),

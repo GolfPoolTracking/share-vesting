@@ -100,3 +100,12 @@ def test_schedule_matches_late_release_in_order():
     assert list(out["status"]) == ["vested"] * 4
     assert list(out["delivered"]) == [44, 45, 45, 45]
     assert list(out["delayed"]) == [True, True, False, False]
+
+
+def test_summary_page_with_header_below_address_block():
+    page = "\n" * 14 + """      INDIVIDUAL INVESTOR ACCOUNT                                     October 01, 2030 - December 31, 2030
+      Opening Value (10/01)                           $32,651.64
+      Closing Value (12/31)                           $24,464.18
+"""
+    p = parse_statement_text(page)
+    assert (p.periods[0]["opening_value"], p.periods[0]["closing_value"]) == (32651.64, 24464.18)

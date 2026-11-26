@@ -160,6 +160,9 @@ if page == "Dashboard":
         st.subheader("Account value by quarter")
         ch = stmts.copy()
         ch["period_end"] = pd.to_datetime(ch["period_end"])
+        for c in ("closing_value", "market_value", "cash", "shares_held"):
+            ch[c] = pd.to_numeric(ch[c], errors="coerce")
+        ch["closing_value"] = ch["closing_value"].fillna(ch["market_value"].fillna(0) + ch["cash"].fillna(0))
         chart = alt.Chart(ch).mark_area(opacity=0.5).encode(
             x=alt.X("period_end:T", title=None),
             y=alt.Y("closing_value:Q", title="Closing value ($)"),
