@@ -83,3 +83,20 @@ SOLD        BANK OF AMERICA CORP
     s = parse_trade_confirm_text(text).sales[0]
     assert (s["trade_date"], s["quantity"], s["fees"], s["net"], s["order_ref"]) == (
         date(2030, 11, 3), 71.0, 0.07, 3514.43, "SSO999")
+
+
+def test_schedule_matches_late_release_in_order():
+    import pandas as pd
+    from share_vesting.calc import schedule
+    grants = pd.DataFrame([dict(id=1, grant_date="2021-03-01", award_type="profit_share", total_shares=375)])
+    sched = pd.DataFrame([dict(grant_id=1, vest_date=f"{y}-03-01", gross_shares=g)
+                          for y, g in [(2022, 93), (2023, 94), (2024, 94), (2025, 94)]])
+    vests = pd.DataFrame([
+        dict(id=1, grant_date="2021-03-01", lapse_date="2023-03-01", posted_date="2023-03-20", net_shares=44),
+        dict(id=2, grant_date="2021-03-01", lapse_date="2023-03-01", posted_date="2023-08-14", net_shares=45),
+        dict(id=3, grant_date="2021-03-01", lapse_date="2024-03-01", posted_date="2024-03-18", net_shares=45),
+        dict(id=4, grant_date="2021-03-01", lapse_date="2025-03-01", posted_date="2025-03-18", net_shares=45)])
+    out = schedule(grants, sched, vests, 0.48)
+    assert list(out["status"]) == ["vested"] * 4
+    assert list(out["delivered"]) == [44, 45, 45, 45]
+    assert list(out["delayed"]) == [True, True, False, False]

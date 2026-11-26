@@ -188,7 +188,7 @@ elif page == "Vesting":
         st.altair_chart(bar, width="stretch")
         st.subheader("Every tranche")
         show = sched[["vest_date", "grant_date", "award_type", "gross_shares", "delivered",
-                      "withheld", "net_estimate", "status"]]
+                      "withheld", "released", "delayed", "net_estimate", "status"]]
         st.dataframe(show, hide_index=True, width="stretch")
         st.caption(f"Upcoming net shares assume {net_rate:.0%} is delivered after tax. "
                    "Vested rows use what was actually delivered.")

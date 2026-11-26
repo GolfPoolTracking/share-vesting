@@ -89,26 +89,33 @@ def reconcile(statements: pd.DataFrame, vests: pd.DataFrame, sales: pd.DataFrame
 
 def schedule(grants: pd.DataFrame, vest_schedule: pd.DataFrame, vests: pd.DataFrame,
              net_rate: float) -> pd.DataFrame:
-    """Planned gross vests joined to what was actually delivered."""
+    """Planned gross tranches joined to what was actually delivered.
+
+    Deliveries are matched to a grant's tranches in order, so a tranche
+    released late (e.g. held back a year) still lines up with its tranche.
+    """
     if vest_schedule.empty:
         return pd.DataFrame()
     g = _dt(grants, "grant_date")
     vs = _dt(vest_schedule, "vest_date").merge(
         g[["id", "grant_date", "award_type", "total_shares"]].rename(columns={"id": "grant_id"}),
-        on="grant_id")
-    actual = pd.DataFrame(columns=["grant_date", "vest_year", "delivered"])
+        on="grant_id").sort_values(["grant_id", "vest_date"])
+    vs["delivered"] = float("nan")
+    vs["released"] = None
     if not vests.empty:
-        v = _dt(vests, "grant_date", "lapse_date")
-        v["vest_year"] = [d.year for d in v["lapse_date"]]
-        actual = v.groupby(["grant_date", "vest_year"], as_index=False)["net_shares"].sum() \
-            .rename(columns={"net_shares": "delivered"})
-    vs["vest_year"] = [d.year for d in vs["vest_date"]]
-    out = vs.merge(actual, on=["grant_date", "vest_year"], how="left")
+        v = _dt(vests, "grant_date", "lapse_date", "posted_date").sort_values(["posted_date", "id"])
+        for gd, dl in v.groupby("grant_date"):
+            idx = vs.index[vs["grant_date"] == gd]
+            for i, (_, r) in zip(idx, dl.iterrows()):
+                vs.at[i, "delivered"] = float(r["net_shares"])
+                vs.at[i, "released"] = r["posted_date"]
+    out = vs
     out["gross_shares"] = out["gross_shares"].astype(float)
-    out["delivered"] = out["delivered"].astype(float)
     today = date.today()
     out["status"] = ["vested" if pd.notna(dl) else ("not delivered" if vd <= today else "upcoming")
                      for dl, vd in zip(out["delivered"], out["vest_date"])]
+    out["delayed"] = [bool(r is not None and (r - vd).days > 60)
+                      for r, vd in zip(out["released"], out["vest_date"])]
     out["withheld"] = out["gross_shares"] - out["delivered"]
     est = (out["gross_shares"] * net_rate).round()
     out["net_estimate"] = out["delivered"].where(out["status"] == "vested",
