@@ -15,6 +15,21 @@ from share_vesting.parser import file_hash, parse_pdf
 
 st.set_page_config(page_title="Share Vesting", page_icon="📈", layout="wide")
 
+# --- Error reporting (Sentry; does nothing if SENTRY_DSN isn't in secrets) ---
+from share_vesting.sentry_setup import init_sentry  # noqa: E402
+init_sentry()
+
+# --- Keep-alive ping (before login, shows no data) ---
+if st.query_params.get("view") == "ping":
+    st.write("Server is awake and ready! 🟢")
+    try:
+        # lightweight query so the Supabase project doesn't pause
+        db.client().table("shares_settings").select("key").limit(1).execute()
+        st.write("Supabase is awake! 🐘🟢")
+    except Exception as e:
+        st.write(f"Supabase ping error: {type(e).__name__}")
+    st.stop()
+
 
 # ------------------------------------------------------------------ login
 def login() -> bool:
